@@ -1,0 +1,326 @@
+--- a/packages/ai/src/providers/anthropic.ts
++++ b/packages/ai/src/providers/anthropic.ts
+@@ -487,6 +487,7 @@
+ 	thinkingReplayDisabled: boolean;
+ 	/** Thinking blocks the API permanently dropped after a prefix mismatch. */
+ 	prefixDroppedThinkingBlocks: Set<string>;
++	prefixDroppedThinkingScope?: string;
+ };
+ 
+ function createAnthropicProviderSessionState(): AnthropicProviderSessionState {
+@@ -502,6 +503,7 @@
+ 			state.replayUnsignedThinkingDisabled = false;
+ 			state.thinkingReplayDisabled = false;
+ 			state.prefixDroppedThinkingBlocks.clear();
++			state.prefixDroppedThinkingScope = undefined;
+ 		},
+ 	};
+ 	return state;
+@@ -1876,9 +1878,23 @@
+ const INPUT_TRANSFORMATION_PATH_PATTERN = /^messages\.(\d+)\.content\.(\d+)$/;
+ const PREFIX_BINDING_ERROR_PATH_PATTERN = /messages\.(\d+)\.content\.(\d+)/;
+ 
++function thinkingReplayHash(value: string): string {
++	return new Bun.CryptoHasher("sha256").update(value).digest("hex");
++}
++
++function persistDroppedThinking(output: AssistantMessage, state: AnthropicProviderSessionState | undefined): void {
++	if (state?.prefixDroppedThinkingScope && state.prefixDroppedThinkingBlocks.size > 0) {
++		output.anthropicThinkingReplay = {
++			scope: state.prefixDroppedThinkingScope,
++			dropped: [...state.prefixDroppedThinkingBlocks].sort(),
++		};
++	}
++}
++
+ function thinkingReplayKey(block: ContentBlockParam): string | undefined {
+-	if (block.type === "thinking") return block.signature ? `thinking:${block.signature}` : undefined;
+-	if (block.type === "redacted_thinking") return block.data ? `redacted:${block.data}` : undefined;
++	if (block.type === "thinking")
++		return block.signature ? thinkingReplayHash(`thinking:${block.signature}`) : undefined;
++	if (block.type === "redacted_thinking") return block.data ? thinkingReplayHash(`redacted:${block.data}`) : undefined;
+ 	return undefined;
+ }
+ 
+@@ -1965,6 +1981,7 @@
+ 	if (fresh.length === 0) return;
+ 	output.inputTransformations = [...(output.inputTransformations ?? []), ...fresh];
+ 	rememberPrefixDroppedThinking(params, fresh, state);
++	persistDroppedThinking(output, state);
+ 	for (const transformation of fresh) {
+ 		if (transformation.reason !== "prefix_binding_mismatch") continue;
+ 		logger.warn("anthropic: dropped thinking block after conversation prefix changed", {
+@@ -2053,11 +2070,31 @@
+ 			const compactionSupported = options?.client
+ 				? supportsAnthropicCompactionOnClient(model, options.client)
+ 				: supportsAnthropicCompaction(model, baseUrl);
+-			const providerSessionState = getAnthropicProviderSessionState(
+-				options?.providerSessionState,
+-				baseUrl,
+-				model.id,
++			const providerSessionState =
++				getAnthropicProviderSessionState(options?.providerSessionState, baseUrl, model.id) ??
++				createAnthropicProviderSessionState();
++			// Credential row IDs survive OAuth refresh; external keys are represented only by a digest.
++			const replayScope = thinkingReplayHash(
++				JSON.stringify([
++					(options?.client ? injectedClientBaseUrl(options.client) : undefined) ?? baseUrl,
++					model.provider,
++					model.id,
++					options?.requestModelId ?? model.requestModelId ?? model.id,
++					options?.credentialId ?? thinkingReplayHash(apiKey),
++				]),
+ 			);
++			if (providerSessionState.prefixDroppedThinkingScope !== replayScope) {
++				providerSessionState.prefixDroppedThinkingBlocks.clear();
++				providerSessionState.prefixDroppedThinkingScope = replayScope;
++			}
++			for (const message of context.messages) {
++				if (message.role !== "assistant" || message.anthropicThinkingReplay?.scope !== replayScope) continue;
++				for (const key of message.anthropicThinkingReplay.dropped) {
++					if (typeof key === "string" && /^[a-f0-9]{64}$/.test(key))
++						providerSessionState.prefixDroppedThinkingBlocks.add(key);
++				}
++			}
++			persistDroppedThinking(output, providerSessionState);
+ 			let disableStrictTools =
+ 				(providerSessionState?.strictToolsDisabled ?? false) || (model.compat?.disableStrictTools ?? false);
+ 			let dropFastMode = providerSessionState?.fastModeDisabled ?? false;
+@@ -3234,6 +3271,7 @@
+ 						prefixBindingRetryAttempted = true;
+ 						prefixMismatchBehavior = undefined;
+ 						dropAllThinking = !rememberPrefixBindingFailure(params, streamFailureMessage, providerSessionState);
++						persistDroppedThinking(output, providerSessionState);
+ 						params = await rebuildParams(streamFailure);
+ 						providerRetryAttempt = 0;
+ 						output.content.length = 0;
+@@ -5274,7 +5312,8 @@
+ 				} else if (block.type === "thinking") {
+ 					if (
+ 						opts?.dropAllThinking ||
+-						(block.thinkingSignature && opts?.droppedThinkingBlocks?.has(`thinking:${block.thinkingSignature}`))
++						(block.thinkingSignature &&
++							opts?.droppedThinkingBlocks?.has(thinkingReplayHash(`thinking:${block.thinkingSignature}`)))
+ 					) {
+ 						continue;
+ 					}
+@@ -5316,7 +5355,11 @@
+ 						});
+ 					}
+ 				} else if (block.type === "redactedThinking") {
+-					if (opts?.dropAllThinking || opts?.droppedThinkingBlocks?.has(`redacted:${block.data}`)) continue;
++					if (
++						opts?.dropAllThinking ||
++						opts?.droppedThinkingBlocks?.has(thinkingReplayHash(`redacted:${block.data}`))
++					)
++						continue;
+ 					if (block.data.trim().length === 0) continue;
+ 					blocks.push({
+ 						type: "redacted_thinking",
+--- a/packages/ai/src/types.ts
++++ b/packages/ai/src/types.ts
+@@ -1262,6 +1262,8 @@
+ 	disabledFeatures?: string[];
+ 	/** Provider-reported input rewrites such as dropped bound-thinking blocks. */
+ 	inputTransformations?: ProviderInputTransformation[];
++	/** Hashed identities of thinking blocks rejected for this endpoint/model/credential. Never sent on the wire. */
++	anthropicThinkingReplay?: { scope: string; dropped: string[] };
+ 	/**
+ 	 * Controls an Anthropic request declared, recorded on its response so later
+ 	 * requests over the same transcript replay a byte-identical prefix.
+--- a/packages/ai/test/anthropic-signature-auto-mark.test.ts
++++ b/packages/ai/test/anthropic-signature-auto-mark.test.ts
+@@ -369,6 +369,132 @@
+ 		expect(extractPriorAssistantBlocks(capturedPayloads[2]).some(block => block.type === "thinking")).toBe(false);
+ 	});
+ 
++	it.each(["reported", "rejected"])(
++		"restores %s prefix drops from persisted history with fresh provider state",
++		async mode => {
++			const payloads: unknown[] = [];
++			let attempt = 0;
++			const drop = { type: "thinking_dropped", reason: "prefix_binding_mismatch", path: "messages.1.content.1" };
++			vi.spyOn(AnthropicMessages.prototype, "create").mockImplementation((params: unknown) => {
++				payloads.push(params);
++				attempt++;
++				if (mode === "rejected" && attempt === 1) {
++					return {
++						async withResponse() {
++							const error = createPrefixBindingRejection();
++							error.message = error.message.replace("content.0", "content.1");
++							throw error;
++						},
++					} as never;
++				}
++				if (mode === "reported" && attempt === 1) {
++					return {
++						async withResponse() {
++							return {
++								data: (async function* () {
++									for (const event of successEvents) {
++										if (event.type === "message_start")
++											yield { ...event, message: { ...event.message, input_transformations: [drop, drop] } };
++										else yield event;
++									}
++								})(),
++								response: new Response(null, { status: 200 }),
++							};
++						},
++					} as never;
++				}
++				return successRequest() as never;
++			});
++			const context: Context = structuredClone(prefixBoundContext);
++			const original = context.messages[1] as AssistantMessage;
++			original.content.unshift({ type: "thinking", thinking: "valid", thinkingSignature: "sig_valid" });
++			const originalJSON = JSON.stringify(context);
++			const state = new Map<string, ProviderSessionState>();
++			const first = await streamAnthropic(prefixModel, context, {
++				apiKey: "sk-ant-test",
++				credentialId: 42,
++				providerSessionState: state,
++			}).result();
++			expect(first.stopReason).toBe("stop");
++			for (const value of state.values()) await value.close();
++			const resumed: Context = JSON.parse(
++				JSON.stringify({
++					messages: [...context.messages, first, { role: "user", content: "Continue again", timestamp: 1 }],
++				}),
++			);
++			const fresh = new Map<string, ProviderSessionState>();
++			await streamAnthropic(prefixModel, resumed, {
++				apiKey: "refreshed-token",
++				credentialId: 42,
++				providerSessionState: fresh,
++			}).result();
++			const blocks = extractPriorAssistantBlocks(payloads.at(-1));
++			expect(blocks.filter(b => b.type === "thinking").map(b => b.signature)).toEqual(["sig_valid"]);
++			expect(JSON.stringify(context)).toBe(originalJSON);
++			// A fork/compaction changes positions; identities, not numeric paths, drive replay.
++			const moved: Context = { messages: [{ role: "user", content: "summary", timestamp: 0 }, ...resumed.messages] };
++			await streamAnthropic(prefixModel, moved, {
++				apiKey: "sk-ant-test",
++				credentialId: 42,
++				providerSessionState: new Map(),
++			}).result();
++			expect(
++				extractPriorAssistantBlocks(payloads.at(-1))
++					.filter(b => b.type === "thinking")
++					.map(b => b.signature),
++			).toEqual(["sig_valid"]);
++			// Routing can change the wire model while the configured model ID stays fixed.
++			await streamAnthropic(prefixModel, resumed, {
++				apiKey: "sk-ant-test",
++				credentialId: 42,
++				requestModelId: "different-upstream-model",
++				providerSessionState: fresh,
++			}).result();
++			expect(
++				extractPriorAssistantBlocks(payloads.at(-1))
++					.filter(b => b.type === "thinking")
++					.map(b => b.signature),
++			).toEqual(["sig_valid", "sig_bound"]);
++			// A model switch has its own binding scope, even on the same endpoint.
++			const switched = buildModel({ ...prefixModel, id: "claude-opus-5-5" });
++			await streamAnthropic(switched, resumed, {
++				apiKey: "sk-ant-test",
++				credentialId: 42,
++				providerSessionState: fresh,
++			}).result();
++			expect(
++				extractPriorAssistantBlocks(payloads.at(-1))
++					.filter(b => b.type === "thinking")
++					.map(b => b.signature),
++			).toEqual(["sig_valid", "sig_bound"]);
++			const movedEndpoint = buildModel({ ...prefixModel, baseUrl: "https://different-endpoint.invalid" });
++			await streamAnthropic(movedEndpoint, resumed, {
++				apiKey: "sk-ant-test",
++				credentialId: 42,
++				providerSessionState: new Map(),
++			}).result();
++			expect(
++				extractPriorAssistantBlocks(payloads.at(-1))
++					.filter(b => b.type === "thinking")
++					.map(b => b.signature),
++			).toEqual(["sig_valid", "sig_bound"]);
++			expect(first.anthropicThinkingReplay?.dropped).toHaveLength(1);
++			expect(JSON.stringify(first.anthropicThinkingReplay)).not.toContain("sig_bound");
++			expect(JSON.stringify(first.anthropicThinkingReplay)).not.toContain("sk-ant-test");
++			// Another credential must not inherit learned exclusions.
++			await streamAnthropic(prefixModel, resumed, {
++				apiKey: "other",
++				credentialId: 99,
++				providerSessionState: new Map(),
++			}).result();
++			expect(
++				extractPriorAssistantBlocks(payloads.at(-1))
++					.filter(b => b.type === "thinking")
++					.map(b => b.signature),
++			).toEqual(["sig_valid", "sig_bound"]);
++		},
++	);
++
+ 	it("surfaces prefix-binding errors when the caller requests fail-loud behavior", async () => {
+ 		const providerSessionState = new Map<string, ProviderSessionState>();
+ 		let attempt = 0;
+--- a/packages/coding-agent/src/session/messages.ts
++++ b/packages/coding-agent/src/session/messages.ts
+@@ -1143,7 +1143,13 @@
+ 			const source = interruptedNext || userInterrupted ? stripDemotedThinkingForLlm(m) : m;
+ 			// An empty interrupted response still carries the controls its request
+ 			// sent (e.g. an Anthropic `tool_removal`); later requests replay them from it.
+-			if (userInterrupted && !interruptedNext && source.content.length === 0 && m.requestControls === undefined) {
++			if (
++				userInterrupted &&
++				!interruptedNext &&
++				source.content.length === 0 &&
++				m.requestControls === undefined &&
++				m.anthropicThinkingReplay === undefined
++			) {
+ 				return [];
+ 			}
+ 			const converted = convertMessageToLlm(canonicalizeXdToolCallNames(source));
+--- a/packages/coding-agent/test/agent-session-interrupted-thinking.test.ts
++++ b/packages/coding-agent/test/agent-session-interrupted-thinking.test.ts
+@@ -78,6 +78,13 @@
+ 		const llm = convertToLlm([{ ...interrupted, requestControls }]);
+ 		expect(llm).toHaveLength(1);
+ 		expect(llm[0]?.role === "assistant" && llm[0].requestControls).toEqual(requestControls);
++	});
++
++	it("keeps learned thinking exclusions after a user interrupt with no output", () => {
++		const anthropicThinkingReplay = { scope: "a".repeat(64), dropped: ["b".repeat(64)] };
++		const llm = convertToLlm([{ ...interrupted, anthropicThinkingReplay }]);
++		expect(llm).toHaveLength(1);
++		expect(llm[0]?.role === "assistant" && llm[0].anthropicThinkingReplay).toEqual(anthropicThinkingReplay);
+ 	});
+ 
+ 	it("still drops it when its request declared no controls", () => {
+--- a/packages/coding-agent/src/extensibility/extensions/runner.ts
++++ b/packages/coding-agent/src/extensibility/extensions/runner.ts
+@@ -2025,6 +2025,8 @@
+ 			}
+ 		}
+ 
++		// Never put history objects back into an array retained by an extension.
++		const restoredMessages: AgentMessage[] = [];
+ 		for (const message of currentMessages) {
+ 			const historyIndex = getContextHistoryIndex(message);
+ 			const historyMessage = historyIndex === undefined ? undefined : messages[historyIndex];
+@@ -2033,12 +2035,15 @@
+ 			clearContextHistoryIndex(message);
+ 			if (historyMessage) clearContextHistoryIndex(historyMessage);
+ 			if (!unchanged) markPerCallContextMessage(message);
++			// All handlers have finished with isolated copies. Keep stable identities
++			// for unchanged history so date/cwd reminders remain append-only.
++			restoredMessages.push(unchanged ? historyMessage! : message);
+ 		}
+ 		for (const message of messages) clearContextHistoryIndex(message);
+ 		// An aborted handler is skipped and its input kept unchanged. Never hand that
+ 		// untransformed (possibly unredacted) context back to a caller as if every hook ran.
+ 		signal?.throwIfAborted();
+-		return currentMessages;
++		return restoredMessages;
+ 	}
+ 
+ 	/** Runs request payload hooks with the model used for that provider request. */

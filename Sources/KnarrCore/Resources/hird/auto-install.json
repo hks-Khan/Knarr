@@ -1,0 +1,41 @@
+{
+  "title": "자동 설치",
+  "sourceScript": "scripts/build-app.sh",
+  "buildTimeoutSeconds": 1800,
+  "verifyTimeoutSeconds": 300,
+  "rootDirectoryName": "auto-install",
+  "worktreeDirectoryName": "worktree",
+  "buildDirectoryName": "build",
+  "candidateDirectoryName": "candidate.app",
+  "linkedDirectories": [
+    "Runtime/ChatUI/node_modules",
+    ".runtime"
+  ],
+  "candidateRelativePath": "outputs/Knarr.app",
+  "statuses": {
+    "off": "꺼짐",
+    "unavailable": "사용할 수 없음 · {reason}",
+    "current": "설치본 {installed} · main {main}",
+    "waiting": "설치 대기 중 · 설치본 {installed} · main {main}",
+    "building": "빌드 중 · main {main}",
+    "installing": "설치 준비 중 · main {main}",
+    "failed": "자동 설치 실패 · {reason}"
+  },
+  "reasons": {
+    "bundle": "설치본 앱 번들이 아니에요",
+    "version": "설치본 버전을 읽지 못했어요",
+    "script": "Knarr 소스 폴더를 찾지 못했어요",
+    "main": "main 버전을 읽지 못했어요",
+    "worktree": "작업 사본을 만들지 못했어요",
+    "command": "빌드 명령이 실패했어요",
+    "timeout": "빌드 시간이 초과됐어요",
+    "signature": "서명 검증을 통과하지 못했어요",
+    "candidate": "빌드 결과 앱을 찾지 못했어요",
+    "mismatch": "빌드 결과가 main 커밋과 달라요",
+    "install": "설치를 시작하지 못했어요"
+  },
+  "sourceMarkers": [
+    "Sources/KnarrApp/KnarrApp.swift",
+    "Sources/KnarrCore/KnarrStore.swift"
+  ]
+}

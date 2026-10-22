@@ -1,0 +1,33 @@
+{
+  "name": "report_stage",
+  "description": "Save progress for this run's approved optional stage plan. Start or complete an existing stage by ID; replan only with a full ordered plan and a reason. Notes describe work/evidence, never rename stages. Completion without evidence is saved as unverified and does not block work. Ownership is assigned by the host; do not provide runID or issueID.",
+  "loadMode": "essential",
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "action": {"type": "string", "enum": ["started", "completed", "replanned"]},
+      "stageID": {"type": "string", "description": "Existing plan stage ID; required for started/completed."},
+      "note": {"type": "string"},
+      "verificationIDs": {"type": "array", "items": {"type": "string"}, "description": "IDs of saved verification/inspection records belonging to this run."},
+      "plan": {
+        "type": "array",
+        "minItems": 1,
+        "description": "Full replacement ordered plan for replanned only; preserve IDs of unchanged stages.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "title", "evidence"],
+          "properties": {
+            "id": {"type": "string"},
+            "title": {"type": "string"},
+            "evidence": {"type": "string"},
+            "criterion": {"type": "integer", "minimum": 1, "description": "Optional 1-based acceptance criterion number."}
+          }
+        }
+      },
+      "reason": {"type": "string", "description": "Required reason for a full replan."}
+    },
+    "required": ["action"]
+  }
+}

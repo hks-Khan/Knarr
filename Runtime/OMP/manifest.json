@@ -1,0 +1,17 @@
+{
+  "upstreamVersion": "18.7.0",
+  "revision": "18.7.0-knarr.2",
+  "sourceURL": "https://github.com/can1357/oh-my-pi/archive/refs/tags/v18.7.0.tar.gz",
+  "sourceSHA256": "d49e276b43936aa3f9f9f60fc90ec3a0028cae18c50c737b06a0f32cdb449ad2",
+  "bunVersion": "1.4.0",
+  "bunArm64SHA256": "c669e97f6164e1c96e0701748db98dfa77492908cbd8394c7557134a735de381",
+  "nativeSHA256": {
+    "arm64": "e375b5f428a4bfc953f1c98aa81232b6cd4f1a97625c187f22495014d482d540",
+    "x64": "cc52e45984a689a54d807bdcc1c2ee2acc762687e3a34960ed6f0075636d909e"
+  },
+  "binarySHA256": {
+    "arm64": "50fde055d40af38c6165b94990fe80397f495f5b384976995610f4a06e2a1e1e",
+    "x64": "ba9106e05c07be261898c7dabe662e9343776141c4a6821bcb20fa9a5ea814a4"
+  },
+  "patchSHA256": "157af231d6cbab2d775c713034f2c3bbcacdb6869edf9047f589a0348870adea"
+}

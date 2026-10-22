@@ -1,0 +1,29 @@
+{
+  "compaction": {
+    "enabled": true,
+    "midTurnEnabled": true,
+    "thresholdTokens": 500000,
+    "thresholdPercent": 60,
+    "keepRecentTokens": 20000,
+    "experimentalContextManagement": false
+  },
+  "retry": {
+    "modelFallback": false,
+    "usageAwareFallback": false
+  },
+  "lsp": {
+    "enabled": true,
+    "lazy": true,
+    "shared": false,
+    "diagnosticsOnWrite": false,
+    "diagnosticsOnEdit": false
+  },
+  "bash": {
+    "autoBackground": {
+      "enabled": false
+    }
+  },
+  "tools": {
+    "xdev": false
+  }
+}

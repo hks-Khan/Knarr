@@ -1,0 +1,2 @@
+# Bundled syntax grammars contain meaningful whitespace inside template strings.
+Sources/KnarrUI/Resources/ChatWeb/app.js -whitespace

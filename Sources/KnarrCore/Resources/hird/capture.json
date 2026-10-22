@@ -1,0 +1,23 @@
+{
+  "metadataTimeoutSeconds": 20,
+  "streamTimeoutSeconds": 180,
+  "maximumMetadataBytes": 16777216,
+  "maximumCommandBytes": 1073741824,
+  "maximumArtifactBytes": 536870912,
+  "maximumTotalArtifactBytes": 2147483648,
+  "maximumArtifactCount": 4096,
+  "maximumSelectedPaths": 100000,
+  "maximumPathBytes": 4096,
+  "maximumManifestBytes": 8388608,
+  "evidenceRoots": ["docs/evidence", "outputs"],
+  "generatedDirectoryPrefixes": [".build-"],
+  "generatedDirectoryNames": [".build", "node_modules", ".cache", "DerivedData"],
+  "sensitiveComponents": [".git", ".ssh", ".aws", ".azure", ".gnupg", ".netrc", ".npmrc", ".pypirc", ".git-credentials", ".omp", ".claude", ".codex", "id_rsa", "id_ed25519", "auth.json", "credentials", "credentials.json", "secrets.json"],
+  "sensitivePrefixes": [".env"],
+  "sensitiveSuffixes": [".pem", ".key", ".p12", ".pfx", ".keychain", ".keychain-db"],
+  "maximumDiagnosticFieldBytes": 96,
+  "sessionArtifactPattern": "^[0-9]+\\.[A-Za-z0-9_-]{1,64}\\.log$",
+  "sourceStabilityAttempts": 3,
+  "sourceStabilityRetryDelayMilliseconds": 250,
+  "checkpointIntervalSeconds": 30
+}

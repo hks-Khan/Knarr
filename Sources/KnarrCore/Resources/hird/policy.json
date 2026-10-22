@@ -1,0 +1,6 @@
+{
+  "lspTimeoutSeconds": 10,
+  "inspectTools": ["read", "grep", "glob", "bash", "todo", "ask"],
+  "inspectDisabledProviders": ["native", "native-managed-skills", "agent-plugins", "agents", "agents-md", "claude", "claude-md", "claude-plugins", "cline", "codex", "cursor", "gemini", "github", "mcp-json", "omp-plugins", "opencode", "skillshare", "ssh", "vscode", "windsurf"],
+  "inspectArguments": ["--no-extensions", "--no-skills", "--no-rules"]
+}

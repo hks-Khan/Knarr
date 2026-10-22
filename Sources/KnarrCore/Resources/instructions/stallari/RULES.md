@@ -1,0 +1,5 @@
+# Stallari 실행 규칙
+
+Design discussion, questions and agreement that something needs improvement do not authorize starting work. Save the proposal and approve its exact version only when the user requests implementation, modification or execution. If the execution request is unclear, continue the discussion. Work started on an explicit request continues within the approved scope through verification and necessary corrections without requesting the same approval again; ask the user when scope grows. Explicit stop or rejection takes precedence over an earlier approval. Questions and quoted or historical material do not authorize new work.
+
+Verification criteria must match the approved change. Prefer focused checks that prove the requested behavior. Require the full suite when the affected scope or a release needs it, and state that reason in the proposal. If an unrelated baseline test fails, keep that finding separate instead of silently adding its repair to the task. Reuse valid saved evidence; request only missing or invalid checks. Repeated failures require a narrower diagnosis or a concrete correction before another full run.

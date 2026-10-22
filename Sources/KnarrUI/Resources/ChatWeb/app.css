@@ -1,0 +1,942 @@
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+html {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: var(--body);
+  color: var(--ink);
+  background: var(--surface);
+}
+body {
+  overflow: hidden;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+button {
+  background: var(--surface);
+  border: 1px solid var(--lineStrong);
+  border-radius: var(--rSmall);
+  padding: var(--s1) var(--s2);
+  cursor: pointer;
+  font-size: var(--secondary);
+}
+button:hover {
+  background: var(--sunken);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+button.primary {
+  background: var(--ink);
+  color: var(--onInk);
+}
+button.link,
+.copy,
+.user-actions button,
+.code-copy,
+.callout-title {
+  border: 0;
+  background: transparent;
+}
+.link,
+a {
+  color: var(--accent);
+}
+button.danger {
+  color: var(--red);
+}
+input:not([type="checkbox"]):not([type="range"]),
+textarea,
+select {
+  width: 100%;
+  border: 1px solid var(--lineStrong);
+  background: var(--surface);
+  border-radius: var(--rSmall);
+  padding: var(--s2);
+  font-size: var(--secondary);
+}
+textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+p {
+  margin: 0 0 var(--s3);
+  line-height: 1.5;
+}
+p:last-child {
+  margin-bottom: 0;
+}
+h1,
+h2,
+h3 {
+  font-size: var(--title);
+  font-weight: 600;
+  line-height: 1.4;
+  margin: var(--s4) 0 var(--s2);
+}
+h1:first-child,
+h2:first-child,
+h3:first-child {
+  margin-top: 0;
+}
+strong {
+  font-weight: 600;
+}
+.chat-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.viewport {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  overflow-anchor: none;
+  scrollbar-gutter: stable;
+}
+.transcript {
+  max-width: calc(var(--column) + var(--s5) * 2);
+  margin: auto;
+  padding: var(--s4) var(--s5);
+}
+.virtual-list {
+  position: relative;
+  width: 100%;
+}
+.virtual-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+.message {
+  position: relative;
+  padding: var(--s2) 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  border-radius: var(--rSmall);
+}
+.message.highlighted {
+  background: var(--accentSoft);
+}
+.meta,
+.muted,
+.copy,
+.user-actions,
+.day,
+figcaption {
+  font-size: var(--caption);
+  color: var(--muted);
+}
+.meta {
+  margin-bottom: var(--s2);
+  line-height: 1.5;
+}
+.user-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+/* The bubble and its controls share one row. The strip keeps its place in the layout and
+   sits in the free space left of the right-aligned bubble, so it never covers the text
+   and nothing moves when it fades in. */
+.user-line {
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: var(--s1);
+  width: 100%;
+  min-width: 0;
+}
+.bubble {
+  flex: 0 1 auto;
+  max-width: 75%;
+  min-width: 0;
+  white-space: pre-wrap;
+  background: var(--sunken);
+  border-radius: var(--rCard);
+  padding: var(--s2) var(--s3);
+  line-height: 1.5;
+}
+/* An answer reserves this lane for its copy control, so the control never covers the
+   text and no line reflows when it fades in. */
+.message.assistant {
+  padding-right: calc(var(--controlHeight) + var(--s1));
+}
+.message-actions {
+  position: absolute;
+  right: 0;
+  bottom: var(--s2);
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  height: var(--controlHeight);
+  padding-left: var(--s1);
+  border-radius: var(--rSmall);
+  background: var(--canvas);
+  opacity: 0;
+  pointer-events: none;
+}
+/* The question strip sits in the row beside the bubble, not on top of it. */
+.message-actions.user-actions {
+  position: static;
+  flex: none;
+  padding-left: 0;
+  background: transparent;
+}
+/* Opacity only: controls stay in the keyboard and accessibility trees.
+   The message includes the action strip, so moving to a button keeps hover.
+   Answers keep their controls in the reserved right gutter, so no line moves on hover. */
+.message:hover .message-actions,
+.message-actions:focus-within,
+.message-actions:has(.copied) {
+  opacity: 1;
+  pointer-events: auto;
+}
+.message-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--controlHeight);
+  height: var(--controlHeight);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.conversation-action {
+  width: auto;
+  padding-inline: var(--s1);
+  font: inherit;
+  white-space: nowrap;
+}
+.message-action:hover {
+  background: var(--sunken);
+  color: var(--ink);
+}
+.message-action.copied {
+  color: var(--green);
+}
+.action-symbol {
+  display: block;
+  width: var(--secondary);
+  height: var(--secondary);
+  background: currentColor;
+  -webkit-mask: var(--symbolCopy) center / contain no-repeat;
+  mask: var(--symbolCopy) center / contain no-repeat;
+}
+.symbol-edit {
+  -webkit-mask-image: var(--symbolEdit);
+  mask-image: var(--symbolEdit);
+}
+.symbol-check {
+  -webkit-mask-image: var(--symbolCheck);
+  mask-image: var(--symbolCheck);
+}
+.action-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-bottom: var(--s2);
+}
+.markdown {
+  line-height: 1.5;
+}
+.markdown .inline-image {
+  display: block;
+  padding: 0;
+  margin: var(--s3) 0;
+  border: 1px solid var(--lineStrong);
+  border-radius: var(--rSmall);
+  background: var(--sunken);
+  overflow: hidden;
+  max-width: 100%;
+}
+.markdown .inline-image img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(var(--s6) * 12);
+  object-fit: contain;
+}
+/* A picture that cannot be shown: a short sentence the reader can act on, not a broken icon. */
+.markdown .image-status {
+  display: block;
+  padding: var(--s2) var(--s3);
+  margin: var(--s3) 0;
+  border: 1px solid var(--line);
+  border-radius: var(--rSmall);
+  background: var(--sunken);
+  font-size: var(--caption);
+  color: var(--muted);
+}
+.markdown ul,
+.markdown ol {
+  padding-left: var(--s5);
+  margin: var(--s2) 0 var(--s3);
+}
+.markdown li {
+  margin-bottom: var(--s1);
+}
+.markdown li > p {
+  margin: 0;
+}
+.markdown hr {
+  border: 0;
+  border-top: 1px solid var(--lineStrong);
+  margin: var(--s4) 0;
+}
+.markdown blockquote,
+.callout {
+  border-left: 2px solid var(--lineStrong);
+  padding-left: var(--s3);
+  margin: var(--s3) 0;
+}
+.callout-title {
+  font-weight: 600;
+  padding-left: 0;
+  margin-bottom: var(--s2);
+}
+.tone-accent {
+  border-color: var(--accent);
+}
+.tone-red {
+  border-color: var(--red);
+}
+.tone-green {
+  border-color: var(--green);
+}
+.tone-amber {
+  border-color: var(--amber);
+}
+.tone-faint {
+  border-color: var(--faint);
+}
+.table-scroll {
+  overflow-x: auto;
+  margin: var(--s3) 0;
+  max-width: 100%;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--secondary);
+}
+th {
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 1px solid var(--lineStrong);
+  color: var(--muted);
+}
+th,
+td {
+  padding: var(--s2) var(--s3);
+  vertical-align: top;
+  min-width: 70px;
+}
+td {
+  border-bottom: 1px solid var(--line);
+}
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--secondary);
+  background: var(--codeChip);
+  border-radius: var(--s1);
+  padding: 0 var(--s1);
+}
+.code-block {
+  position: relative;
+  margin: var(--s3) 0;
+  border: 1px solid var(--line);
+  border-radius: var(--rCard);
+  background: var(--sunken);
+}
+pre {
+  overflow-x: auto;
+  margin: 0;
+  padding: var(--s5) var(--s3) var(--s3);
+  white-space: pre;
+  overflow-wrap: normal;
+}
+pre code {
+  background: none;
+  padding: 0;
+}
+.code-copy {
+  position: absolute;
+  right: var(--s2);
+  top: var(--s1);
+  color: var(--faint);
+  font-size: var(--caption);
+}
+.code-copy:hover {
+  color: var(--ink);
+}
+.hljs-keyword,
+.hljs-literal,
+.hljs-selector-tag {
+  color: var(--synKeyword);
+}
+.hljs-string,
+.hljs-attr {
+  color: var(--synString);
+}
+.hljs-number {
+  color: var(--synNumber);
+}
+.hljs-comment {
+  color: var(--faint);
+}
+.issue-card,
+.proposal,
+.ui-card {
+  border: 1px solid var(--line);
+  border-radius: var(--rCard);
+  padding: var(--s3);
+}
+.proposal {
+  margin-top: var(--s2);
+  font-size: var(--secondary);
+}
+.spread {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  font-size: var(--secondary);
+}
+.spread strong {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.actions,
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  margin: var(--s2) 0;
+}
+.choices button[aria-pressed="true"] {
+  background: var(--accentSoft);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.question > p {
+  margin: var(--s3) 0;
+}
+.prewrap {
+  white-space: pre-wrap;
+}
+details {
+  font-size: var(--secondary);
+  margin: var(--s2) 0;
+}
+summary {
+  cursor: pointer;
+  color: var(--muted);
+  padding: var(--s1) 0;
+}
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--s2);
+}
+dt {
+  color: var(--muted);
+}
+dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+progress {
+  height: 3px;
+  width: 100%;
+  accent-color: var(--accent);
+}
+.day {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.day:before,
+.day:after {
+  content: "";
+  height: 1px;
+  background: var(--line);
+  flex: 1;
+}
+.response-slot {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--secondary);
+  color: var(--muted);
+}
+.responding {
+  animation: breathe 1.5s ease-in-out infinite;
+}
+@keyframes breathe {
+  50% {
+    opacity: 0.55;
+  }
+}
+html[data-reduce-motion="true"] * {
+  animation: none !important;
+  scroll-behavior: auto !important;
+}
+.generated-ui {
+  margin: var(--s3) 0;
+}
+.generated-ui fieldset:disabled {
+  opacity: 0.85;
+}
+.ui-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+.ui-row {
+  display: flex;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+.ui-row > div {
+  flex: 1;
+  min-width: 150px;
+}
+.ui-card > * + * {
+  margin-top: var(--s3);
+}
+.metric {
+  padding: var(--s2) 0;
+}
+.metric > span {
+  display: block;
+  font-size: var(--caption);
+  color: var(--muted);
+}
+.metric > strong {
+  font-size: calc(var(--title) * 1.5);
+  font-variant-numeric: tabular-nums;
+}
+.metric small {
+  font-size: var(--secondary);
+  font-weight: 400;
+  margin-left: var(--s1);
+}
+.badge {
+  font-size: var(--caption);
+  border-radius: var(--rSmall);
+  background: var(--sunken);
+  padding: var(--s1) var(--s2);
+}
+.field {
+  display: block;
+  font-size: var(--secondary);
+}
+.field > input,
+.field > select {
+  margin-top: var(--s2);
+}
+.field > output {
+  float: right;
+  font-variant-numeric: tabular-nums;
+}
+.choice {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+figure {
+  margin: var(--s2) 0;
+  color: var(--accent);
+}
+figure svg {
+  width: 100%;
+  max-height: 220px;
+}
+figcaption {
+  color: var(--muted);
+}
+.bar-line {
+  display: grid;
+  grid-template-columns: minmax(70px, 1fr) 3fr max-content;
+  gap: var(--s2);
+  align-items: center;
+  font-size: var(--secondary);
+  margin: var(--s2) 0;
+}
+meter {
+  width: 100%;
+  height: 12px;
+}
+button,
+summary,
+a {
+  -webkit-user-select: none;
+}
+::selection {
+  background: var(--accentSoft);
+}
+@media (max-width: 520px) {
+  .transcript {
+    padding: var(--s2) var(--s3);
+  }
+  .bubble {
+    max-width: 90%;
+  }
+  .spread {
+    align-items: flex-start;
+  }
+  .ui-row > div {
+    min-width: 100%;
+  }
+}
+
+.issue-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.issue-progress > .meta {
+  white-space: nowrap;
+  margin: 0;
+}
+.step-bar {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+.step {
+  height: 3px;
+  background: var(--lineStrong);
+  border-radius: var(--s1);
+  flex: 1;
+}
+.step-done {
+  background: var(--green);
+}
+.step-active {
+  background: var(--accent);
+  animation: breathe 1.5s infinite;
+}
+.step-failed {
+  background: var(--red);
+}
+.step-blocked {
+  background: var(--amber);
+}
+.live-working {
+  color: var(--muted);
+}
+.live-waiting {
+  color: var(--amber);
+}
+.live-failed {
+  color: var(--red);
+}
+
+.progress-entry {
+  border-left: 2px solid var(--line);
+  padding-left: var(--s3);
+}
+.activity-body {
+  color: var(--muted);
+  font-size: var(--secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.activity-body p { margin: var(--s1) 0; }
+.activity-failed { border-color: var(--red); }
+.activity-stopped, .activity-interrupted { border-color: var(--amber); }
+
+
+.progress-group > details > summary { color: var(--ink); font-size: var(--secondary); }
+/* The folded record sits immediately above its answer, not as a separate spaced row. */
+.message.progress-group { padding-bottom: 0; }
+.progress-records { margin-top: var(--s2); }
+.progress-record + .progress-record { margin-top: var(--s3); }
+.activity-time { margin-left: var(--s2); color: var(--faint); }
+.progress-record.highlighted { background: var(--sunken); }
+
+/* A focused conversation: a wide panel at the bottom of its row, sized from the viewport so the
+   main conversation above stays readable. The collapsed card stays a narrow one-line row. */
+.conversation-card {
+  width: 75%;
+  margin-left: auto;
+  border: 1px solid var(--lineStrong);
+  border-radius: var(--rCard);
+  background: var(--surface);
+  padding: var(--s2);
+}
+.conversation-card-open {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font-size: var(--secondary);
+}
+.conversation-card-open:hover { background: transparent; }
+/* The row whose conversation the docked panel shows: a thread from the card down to the panel. */
+.conversation-card.active {
+  border-color: var(--lineStrong);
+  background: var(--sunken);
+}
+.conversation-card.active .conversation-card-open { cursor: default; }
+.conversation-dot {
+  width: var(--s2);
+  height: var(--s2);
+  border-radius: 50%;
+  background: var(--faint);
+  flex: none;
+}
+.conversation-dot.live { background: var(--accent); animation: breathe 1.5s ease-in-out infinite; }
+.conversation-card-title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.conversation-card-state { color: var(--muted); white-space: nowrap; }
+.conversation-card-time { color: var(--faint); font-size: var(--caption); white-space: nowrap; }
+/* The dock holds the panel above the native composer and below the transcript. When the panel is
+   open it takes the transcript's spare height and the main conversation keeps a thin strip, so the
+   focused conversation never collapses to a single line in a short window. */
+.conversation-dock {
+  display: flex;
+  /* Three quarters of the spare height: the panel is the focus while open, the main transcript
+     keeps a thin strip so it stays visibly above it. */
+  flex: 3 1 0;
+  width: 100%;
+  min-height: 0;
+  max-height: 480px;
+  /* Inset from the message column so the rounded outline reads as its own surface. */
+  padding: 0 calc(var(--s6) + var(--s2)) var(--s3);
+  margin: 0 auto;
+  max-width: calc(var(--column) + var(--s5) * 2);
+}
+.conversation-canvas {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--lineStrong);
+  border-radius: var(--rLarge);
+  background: var(--surface);
+  overflow: hidden;
+}
+.conversation-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--s2);
+  min-height: calc(var(--controlHeight) + var(--s3));
+  padding: var(--s2) var(--s2) var(--s2) var(--s4);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--caption);
+}
+.conversation-eyebrow {
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.conversation-meta { color: var(--faint); white-space: nowrap; }
+.conversation-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  margin-left: auto;
+}
+.conversation-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--controlHeight);
+  height: var(--controlHeight);
+  padding: 0;
+  border: 0;
+  border-radius: var(--rSmall);
+  background: transparent;
+  color: var(--muted);
+  flex: none;
+}
+.conversation-icon:hover { background: var(--sunken); color: var(--ink); }
+/* Closing is the expected exit, so it sits last and reaches the panel edge without a box. */
+.conversation-close { margin-left: var(--s1); color: var(--ink); }
+.conversation-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-anchor: none;
+  padding: var(--s3) var(--s4) var(--s2);
+}
+.conversation-body .message { padding: var(--s1) 0 var(--s2); }
+.conversation-body .message.user { align-items: flex-end; }
+.conversation-body .bubble { background: var(--sunken); max-width: 100%; }
+.conversation-body .message-actions { display: none; }
+.conversation-body .meta { margin-bottom: var(--s1); }
+.conversation-form {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4);
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.conversation-footer-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s3);
+  align-items: baseline;
+}
+.conversation-compose {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s2);
+}
+.conversation-compose textarea {
+  min-height: 0;
+  height: calc(var(--controlHeight) + var(--s2));
+  resize: none;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--rSmall);
+  font-size: var(--secondary);
+}
+.conversation-send {
+  width: calc(var(--controlHeight) + var(--s2));
+  height: calc(var(--controlHeight) + var(--s2));
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--onInk);
+}
+.conversation-send:hover { background: var(--ink); color: var(--onInk); opacity: 0.9; }
+.conversation-send:disabled { opacity: 0.25; }
+.conversation-status {
+  font-size: var(--caption);
+  color: var(--muted);
+}
+.conversation-status.waiting { color: var(--muted); }
+.conversation-stop-reason {
+  margin: 0;
+  font-size: var(--caption);
+  color: var(--muted);
+}
+.conversation-error {
+  padding: 0;
+  font-size: var(--caption);
+  color: var(--red);
+}
+.symbol-bubble { -webkit-mask-image: var(--symbolBubble); mask-image: var(--symbolBubble); }
+.symbol-collapse { -webkit-mask-image: var(--symbolCollapse); mask-image: var(--symbolCollapse); }
+.symbol-expand-window { -webkit-mask-image: var(--symbolExpandWindow); mask-image: var(--symbolExpandWindow); }
+.symbol-close { -webkit-mask-image: var(--symbolClose); mask-image: var(--symbolClose); }
+.symbol-send { -webkit-mask-image: var(--symbolSend); mask-image: var(--symbolSend); }
+.symbol-stop { -webkit-mask-image: var(--symbolStop); mask-image: var(--symbolStop); }
+
+/* One generated work report, posted into the main conversation.
+   No box: the same left meaning bar as a callout, so it reads as a system line, not a card in a card. */
+.report-card {
+  border-left: 2px solid var(--lineStrong);
+  padding-left: var(--s3);
+  margin: var(--s3) 0;
+}
+.report-card .report-lines {
+  margin: var(--s2) 0;
+  padding-left: var(--s4);
+  color: var(--muted);
+}
+.report-card .report-lines li { margin-bottom: var(--s1); }
+.report-card .report-error { color: var(--amber); }
+.report-card .actions { margin-bottom: 0; }
+
+/* Mobile uses the shared renderer with native touch input and compact white/coral tokens. */
+html[data-mobile="true"] { -webkit-text-size-adjust: 100%; }
+html[data-mobile="true"] .message { padding-block: 8px; }
+html[data-mobile="true"] button.primary { background: var(--accent); color: #fff; }
+html[data-mobile="true"] .message-actions { position: static; margin-top: var(--s1); opacity: 1; pointer-events: auto; }
+html[data-mobile="true"] .message.assistant { padding-right: 0; }
+html[data-mobile="true"] .user-line { flex-direction: column; align-items: flex-end; gap: 0; }
+html[data-mobile="true"] .message-action { width: auto; min-width: 32px; min-height: 30px; }
+html[data-mobile="true"] .message-action .action-symbol { display: none; }
+html[data-mobile="true"] .message-action[aria-label="복사"]::after { content: "복사"; }
+html[data-mobile="true"] .message-action[aria-label="복사됨"]::after { content: "복사됨"; }
+html[data-mobile="true"] .message-action[aria-label="수정"]::after { content: "수정"; }
+html[data-mobile="true"] .attachments button { display: flex; flex-direction: column; gap: 4px; border: 0; padding: 0; }
+.attachment-thumbnail { max-width: 220px; max-height: 180px; object-fit: contain; border: 1px solid var(--line); border-radius: 4px; }
+html[data-mobile="true"] .ui-card { background: transparent; border-radius: 4px; box-shadow: none; }
+html[data-mobile="true"] .pending-status { color: var(--amber); }
+html[data-mobile="true"] input[type="range"] { min-height: 32px; }
+html[data-mobile="true"] .conversation-card,
+html[data-mobile="true"] .conversation-canvas { width: 100%; }
+/* The Mac panel is bottom-docked and window-sized; phones keep a single full-width column. */
+html[data-mobile="true"] .conversation-dock {
+  flex: none;
+  min-height: 0;
+  max-height: none;
+  padding: 0 var(--s3) var(--s2);
+}
+html[data-mobile="true"] .conversation-canvas {
+  flex: none;
+  width: 100%;
+  height: 320px;
+  max-height: 70vh;
+  border-radius: var(--rCard);
+}
+html[data-mobile="true"] .conversation-header { padding-left: var(--s3); }
+html[data-mobile="true"] .conversation-body { padding: var(--s2) var(--s3); }
+html[data-mobile="true"] .conversation-form { padding: var(--s2) var(--s3); }
+html[data-mobile="true"] .conversation-icon { width: 34px; height: 34px; }
+html[data-mobile="true"] .conversation-compose textarea { height: 34px; font-size: var(--secondary); }
